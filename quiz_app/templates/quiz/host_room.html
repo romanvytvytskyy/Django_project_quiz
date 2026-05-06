@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block title %}Управління грою - {{ session.join_code }}{% endblock %}
+
+{% block content %}
+<div class="container text-center mt-5">
+    <h1 class="display-4 mb-4">Вікторина: <strong>{{ session.quiz.title }}</strong></h1>
+    
+    <div class="card bg-dark text-white mx-auto shadow-lg" style="max-width: 500px;">
+        <div class="card-body py-5">
+            <h3 class="card-title text-muted mb-3">Код для приєднання</h3>
+            <div class="display-1 fw-bold text-warning" style="letter-spacing: 5px;">
+                {{ session.join_code }}
+            </div>
+            <p class="mt-3">Гравці можуть ввести цей код на головній сторінці.</p>
+        </div>
+    </div>
+
+    <div class="mt-4 mb-4">
+        <h3 id="answered-info" class="text-info" style="display: none;">
+            Відповіли: <span id="answered-count" class="fw-bold fs-1">0</span> / <span id="total-count">0</span>
+        </h3>
+    </div>
+
+    <div class="mt-2">
+        <button id="next-question-btn" class="btn btn-success btn-lg px-5 py-3 fs-4 shadow">
+            Почати / Наступне питання
+        </button>
+    </div>
+    
+    <div class="mt-4">
+        <h4>Статус сервера: <span id="ws-status" class="badge bg-secondary">Підключення...</span></h4>
+        <div class="mt-5 border-top pt-4">
+        <h4 class="text-muted">Гравці у лобі (<span id="player-count">0</span>):</h4>
+        <div id="players-list" class="d-flex flex-wrap justify-content-center gap-2 mt-3">
+        </div>
+    </div>
+    </div>
+</div>
+
+<script>
+    const roomCode = "{{ session.join_code }}";
+    const wsProtocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+    
+    const quizSocket = new WebSocket(
+        wsProtocol + window.location.host + '/ws/quiz/' + roomCode + '/'
+    );
+
+    const statusBadge = document.getElementById('ws-status');
+
+    quizSocket.onopen = function(e) {
+        statusBadge.textContent = "З'єднано (Live)";
+        statusBadge.className = "badge bg-success";
+    };
+
+    quizSocket.onclose = function(e) {
+        statusBadge.textContent = "Відключено";
+        statusBadge.className = "badge bg-danger";
+        console.error('WebSocket з\'єднання закрито неочікувано');
+    };
+    let totalPlayers = 0;
+    let answeredPlayers = 0;
+
+    quizSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        
+        if (data.event === 'update_players') {
+            const playersList = document.getElementById('players-list');
+            const playerCount = document.getElementById('player-count');
+            
+            playersList.innerHTML = '';
+            totalPlayers = data.message.players.length;
+            playerCount.textContent = totalPlayers;
+            document.getElementById('total-count').textContent = totalPlayers;
+            
+            data.message.players.forEach(playerName => {
+                const badge = document.createElement('span');
+                badge.id = 'badge-' + playerName; 
+                badge.className = 'badge bg-primary fs-5 p-2 shadow-sm';
+                badge.textContent = playerName;
+                playersList.appendChild(badge);
+            });
+        } 
+        
+        else if (data.event === 'new_question') {
+            answeredPlayers = 0;
+            document.getElementById('answered-count').textContent = answeredPlayers;
+            document.getElementById('answered-info').style.display = 'block';
+            
+            const badges = document.querySelectorAll('#players-list .badge');
+            badges.forEach(badge => {
+                badge.classList.remove('bg-success');
+                badge.classList.add('bg-primary');
+            });
+        }
+        
+        else if (data.event === 'player_answered') {
+            answeredPlayers++;
+            document.getElementById('answered-count').textContent = answeredPlayers;
+            
+            const playerBadge = document.getElementById('badge-' + data.message.nickname);
+            if (playerBadge) {
+                playerBadge.classList.remove('bg-primary');
+                playerBadge.classList.add('bg-success');
+            }
+        }
+
+        else if (data.event === 'quiz_ended') {
+            document.getElementById('next-question-btn').style.display = 'none';
+            
+            const infoContainer = document.getElementById('answered-info');
+            infoContainer.style.display = 'block';
+            infoContainer.className = "mt-4";
+            
+            let tableHTML = '<h2 class="text-success fw-bold mb-4">🏆 Вікторину завершено! Рейтинг:</h2>';
+            tableHTML += '<table class="table table-bordered table-hover fs-4"><thead><tr class="table-dark"><th>Гравець</th><th>Бали</th></tr></thead><tbody>';
+            
+            data.message.leaderboard.forEach(player => {
+                tableHTML += `<tr><td>${player.name}</td><td class="text-success fw-bold">${player.score}</td></tr>`;
+            });
+            tableHTML += '</tbody></table>';
+            
+            infoContainer.innerHTML = tableHTML;
+            document.getElementById('players-list').innerHTML = ''; 
+        }
+    };
+
+    document.getElementById('next-question-btn').onclick = function(e) {
+        quizSocket.send(JSON.stringify({
+            'action': 'next_question',
+            'data': {
+                'text': 'Увага! Це тестове запитання з сервера!',
+                'time_limit': 15
+            }
+        }));
+    };
+</script>
+{% endblock %}

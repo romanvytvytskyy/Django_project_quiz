@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Варіанти відповідей для: "{{ object.text|truncatechars:50 }}"</h2>
+    
+    <form method="post">
+        {% csrf_token %}
+        {{ answers.management_form }}
+        
+        <div class="row mt-4">
+            {% for form in answers %}
+                <div class="col-md-6 mb-3">
+                    <div class="card p-3 shadow-sm border-{% if form.is_correct.value %}success{% else %}light{% endif %}">
+                        <h5 class="card-title">Відповідь {{ forloop.counter }}</h5>
+                        {{ form.non_field_errors }}
+                        
+                        <div class="form-group mb-2">
+                            <label class="form-label fw-bold">Текст відповіді:</label>
+                            {{ form.text }}
+                            {{ form.text.errors }}
+                        </div>
+                        
+                        <div class="form-check form-switch mt-2">
+                            {{ form.is_correct }}
+                            <label class="form-check-label text-success fw-bold" for="{{ form.is_correct.id_for_label }}">Це ПРАВИЛЬНА відповідь</label>
+                        </div>
+                        
+                        {% if form.DELETE %}
+                            <div class="form-check mt-3 text-danger">
+                                {{ form.DELETE }}
+                                <label class="form-check-label" for="{{ form.DELETE.id_for_label }}">Видалити цей варіант</label>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        
+        <div class="mt-4 mb-5">
+            <button type="submit" class="btn btn-success btn-lg">Зберегти відповіді</button>
+            <a href="{% url 'quiz_questions' object.quiz.pk %}" class="btn btn-secondary btn-lg ms-2">Назад до питань</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

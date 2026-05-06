@@ -1,0 +1,57 @@
+{% extends 'base.html' %} {% block title %}Реєстрація - Онлайн-вікторина{%endblock %} {% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6 col-lg-5">
+    <div class="card shadow-sm mt-5">
+      <div class="card-header bg-primary text-white text-center">
+        <h4 class="mb-0">Реєстрація</h4>
+      </div>
+      <div class="card-body p-4">
+        <form method="post">
+          {% csrf_token %} {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %} {% for field in form %}
+          <div class="mb-3">
+            <label class="form-label fw-bold" for="{{ field.id_for_label }}"
+              >{{ field.label }}</label
+            >
+
+            {{ field }} {% if field.errors %}
+            <div class="text-danger small mt-1">
+              {{ field.errors|striptags }}
+            </div>
+            {% endif %} {% if field.help_text %}
+            <div class="form-text text-muted small mt-1">
+              {{ field.help_text|safe }}
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+
+          <div class="d-grid gap-2 mt-4">
+            <button type="submit" class="btn btn-primary btn-lg">
+              Зареєструватися
+            </button>
+          </div>
+        </form>
+      </div>
+      <div class="card-footer text-center py-3">
+        Вже маєте акаунт?
+        <a href="{% url 'login' %}" class="text-decoration-none"
+          >Увійдіть тут</a
+        >
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    let inputs = document.querySelectorAll(
+      'input:not([type="checkbox"]):not([type="hidden"])',
+    );
+    inputs.forEach(function (input) {
+      input.classList.add("form-control");
+    });
+  });
+</script>
+{% endblock %}

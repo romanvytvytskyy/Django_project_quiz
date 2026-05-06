@@ -1,0 +1,40 @@
+{% extends 'base.html' %} {% block content %}
+<div class="container mt-4">
+  <h2>Редагування запитань для: {{ quiz.title }}</h2>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    {{ questions.management_form }}
+
+    <div class="questions-container">
+      {% for form in questions %}
+      <div
+        class="card mb-3 p-3"
+        style="border: 1px solid #ccc; border-radius: 5px"
+      >
+        <h4>Запитання {{ forloop.counter }}</h4>
+        {{ form.non_field_errors }} {% for field in form %}
+                        <div class="form-group mb-2">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {{ field.errors }}
+                        </div>
+                    {% endfor %}
+                    
+                    {% if form.instance.pk %}
+                        <a href="{% url 'question_answers' form.instance.pk %}" class="btn btn-sm btn-info mt-3 text-white">⚙️ Додати/Редагувати варіанти відповідей</a>
+                    {% else %}
+                        <p class="text-muted small mt-2 mb-0">Збережіть сторінку, щоб додати варіанти відповідей.</p>
+                    {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-3">
+      Зберегти запитання
+    </button>
+    <a href="{% url 'quiz_list' %}" class="btn btn-secondary mt-3">Скасувати</a>
+  </form>
+</div>
+{% endblock %}

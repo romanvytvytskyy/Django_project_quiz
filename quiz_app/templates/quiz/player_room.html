@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block title %}Гра - {{ session.join_code }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            
+            <div id="waiting-screen">
+                <div class="spinner-border text-primary" style="width: 4rem; height: 4rem;" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h2 class="mt-4">Привіт, <strong>{{ nickname }}</strong>!</h2>
+                <h4 class="text-muted mt-2">Ви успішно приєдналися.<br>Очікуємо, поки хост запустить вікторину...</h4>
+            </div>
+
+            <div id="question-screen" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <span class="badge bg-info fs-5">Питання</span>
+                    <span class="badge bg-danger fs-4">⏱ <span id="time-left">0</span>с</span>
+                </div>
+                
+                <div class="card shadow-lg mb-4">
+                    <div class="card-body py-5">
+                        <div id="media-container" class="text-center"></div>
+                        <h2 id="question-text" class="card-title mb-0">Текст питання буде тут</h2>
+                    </div>
+                </div>
+                
+                <div id="answers-container" class="d-grid gap-3">
+                    <button class="btn btn-outline-primary btn-lg">Варіант відповіді 1 (Тест)</button>
+                    <button class="btn btn-outline-primary btn-lg">Варіант відповіді 2 (Тест)</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    const roomCode = "{{ session.join_code }}";
+    const userNickname = "{{ nickname }}"; 
+    const wsProtocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+    const quizSocket = new WebSocket(wsProtocol + window.location.host + '/ws/quiz/' + roomCode + '/');
+
+    const waitingScreen = document.getElementById('waiting-screen');
+    const questionScreen = document.getElementById('question-screen');
+    const questionText = document.getElementById('question-text');
+    const timeLeftSpan = document.getElementById('time-left');
+
+    let timerInterval;
+    let currentQuestionId = null;
+
+    quizSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+
+        if (data.event === 'new_question') {
+            currentQuestionId = data.message.id;
+            waitingScreen.style.display = 'none';
+            questionScreen.style.display = 'block';
+            questionText.textContent = data.message.text;
+            
+            const answersContainer = document.getElementById('answers-container');
+            answersContainer.innerHTML = '';
+            
+            data.message.answers.forEach(answer => {
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-outline-primary btn-lg';
+                btn.textContent = answer.text;
+                
+                btn.onclick = function() {
+                    const allBtns = answersContainer.querySelectorAll('button');
+                    allBtns.forEach(b => {
+                        b.classList.remove('btn-primary');
+                        b.classList.add('btn-outline-primary');
+                        b.disabled = true; 
+                    });
+                    btn.classList.remove('btn-outline-primary');
+                    btn.classList.add('btn-primary');
+                    
+                    quizSocket.send(JSON.stringify({
+                        'action': 'submit_answer',
+                        'nickname': userNickname,
+                        'question_id': currentQuestionId,
+                        'answer_id': answer.id
+                    }));
+                };
+                
+                answersContainer.appendChild(btn);
+            });
+
+            startTimer(data.message.time_limit || 15);
+            questionText.textContent = data.message.text;
+            const mediaContainer = document.getElementById('media-container');
+            if (data.message.media_url) {
+                mediaContainer.innerHTML = `<img src="${data.message.media_url}" class="img-fluid rounded mb-4" style="max-height: 300px;">`;
+            } else {
+                mediaContainer.innerHTML = ''; 
+            }
+            
+        } else if (data.event === 'quiz_ended') {
+            questionText.textContent = "Вікторину завершено! Рейтинг гравців:";
+            timeLeftSpan.textContent = "0";
+            clearInterval(timerInterval);
+            const answersContainer = document.getElementById('answers-container');
+            answersContainer.innerHTML = '';
+            let tableHTML = '<table class="table table-bordered table-hover mt-4"><thead><tr class="table-dark"><th>Гравець</th><th>Бали</th></tr></thead><tbody>';
+            data.message.leaderboard.forEach(player => {
+                tableHTML += `<tr><td class="fs-5">${player.name}</td><td class="fs-5 text-success fw-bold">${player.score}</td></tr>`;
+            });
+            tableHTML += '</tbody></table>';
+            answersContainer.innerHTML = tableHTML;
+        }
+    };
+
+    function startTimer(seconds) {
+        clearInterval(timerInterval);
+        let timeRemaining = seconds;
+        timeLeftSpan.textContent = timeRemaining;
+        timerInterval = setInterval(() => {
+            timeRemaining--;
+            timeLeftSpan.textContent = timeRemaining;
+            
+            if (timeRemaining <= 0) {
+                clearInterval(timerInterval);
+                questionText.textContent = "Час вийшов!";
+                const allBtns = document.getElementById('answers-container').querySelectorAll('button');
+                allBtns.forEach(b => b.disabled = true);
+            }
+        }, 1000);
+    }
+</script>
+{% endblock %}
